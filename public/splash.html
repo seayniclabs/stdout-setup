@@ -6,9 +6,16 @@
     <title>StdOut Installation</title>
     <style>
         :root {
-            --neon-cyan: #00f3ff;
-            --neon-blue: #0044ff;
-            --dark-bg: #0a0b10;
+            /* StdOut Brand Colors */
+            --accent: #F97316;
+            --accent-light: #FB923C;
+            --accent-btn: #C2410C;
+            --bg: #07070C;
+            --bg-surface: #0E0E18;
+            --bg-elevated: #151522;
+            --border: #1F1F35;
+            --text: #F0F0F8;
+            --text-secondary: #A0A0B8;
         }
 
         body, html {
@@ -16,9 +23,9 @@
             padding: 0;
             width: 100%;
             height: 100%;
-            background-color: var(--dark-bg);
-            font-family: 'Courier New', Courier, monospace;
-            color: #fff;
+            background-color: var(--bg);
+            font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
+            color: var(--text);
             overflow: hidden;
             display: flex;
             justify-content: center;
@@ -31,8 +38,8 @@
             width: 200%;
             height: 200%;
             background-image:
-                linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+                linear-gradient(rgba(249, 115, 22, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(249, 115, 22, 0.03) 1px, transparent 1px);
             background-size: 40px 40px;
             transform: perspective(500px) rotateX(60deg);
             animation: gridMove 20s linear infinite;
@@ -72,7 +79,7 @@
         }
 
         .ring-outer {
-            border-top-color: var(--neon-cyan);
+            border-top-color: var(--accent);
             animation: spinClockwise 2s linear infinite;
         }
 
@@ -81,7 +88,7 @@
             height: 80%;
             top: 10%;
             left: 10%;
-            border-bottom-color: var(--neon-blue);
+            border-bottom-color: var(--accent-light);
             animation: spinCounterClockwise 1.5s linear infinite;
         }
 
@@ -100,40 +107,40 @@
             font-size: 1.5rem;
             letter-spacing: 4px;
             text-transform: uppercase;
-            color: var(--neon-cyan);
-            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+            color: var(--accent);
+            text-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
             margin-bottom: 5px;
         }
 
         .status-text {
             font-size: 0.9rem;
-            color: #888;
+            color: var(--text-secondary);
             margin-bottom: 25px;
-            height: 20px;
+            min-height: 40px;
         }
 
         /* Cinematic Progress Bar */
         .progress-frame {
             width: 100%;
             height: 6px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(0, 243, 255, 0.2);
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
             padding: 2px;
-            box-shadow: 0 0 10px rgba(0, 243, 255, 0.1);
+            box-shadow: 0 0 10px rgba(249, 115, 22, 0.1);
         }
 
         .progress-bar {
             width: 0%;
             height: 100%;
-            background: linear-gradient(90deg, var(--neon-blue), var(--neon-cyan));
-            box-shadow: 0 0 15px var(--neon-cyan);
+            background: linear-gradient(90deg, var(--accent-btn), var(--accent));
+            box-shadow: 0 0 15px var(--accent);
             transition: width 0.4s ease-out;
         }
 
         .percentage {
             margin-top: 15px;
             font-size: 1.2rem;
-            color: var(--neon-cyan);
+            color: var(--accent);
             font-weight: bold;
         }
 
@@ -141,8 +148,8 @@
         .step-indicator {
             margin-top: 20px;
             font-size: 0.75rem;
-            color: #555;
-            font-family: monospace;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
         }
     </style>
 </head>
@@ -181,12 +188,12 @@
 
             switch (data.type) {
                 case 'connected':
-                    statusText.textContent = 'Connected. Waiting for installation to begin...';
+                    statusText.textContent = 'Connected to setup server. Waiting for installation to begin...';
                     break;
 
                 case 'step_start':
-                    statusText.textContent = data.name;
-                    stepText.textContent = `Step ${data.step}/8`;
+                    statusText.textContent = data.name || 'Processing...';
+                    stepText.textContent = `Step ${data.step}/8: ${data.name}`;
                     break;
 
                 case 'step_complete':
@@ -195,11 +202,14 @@
                     break;
 
                 case 'output':
-                    // Optional: show detailed output in status
+                    // Show detailed progress messages
+                    if (data.message) {
+                        statusText.textContent = data.message;
+                    }
                     break;
 
                 case 'error':
-                    statusText.style.color = '#ff4444';
+                    statusText.style.color = '#FF6B6B';
                     statusText.textContent = `Error: ${data.error}`;
                     eventSource.close();
                     break;
@@ -207,9 +217,9 @@
                 case 'complete':
                     progressBar.style.width = '100%';
                     percentText.textContent = '100%';
-                    statusText.style.color = '#00ff66';
-                    statusText.textContent = 'Installation Complete!';
-                    stepText.textContent = 'Redirecting to StdOut...';
+                    statusText.style.color = '#00D4AA';
+                    statusText.textContent = 'Installation Complete! StdOut is ready.';
+                    stepText.textContent = 'Redirecting to your dashboard...';
 
                     setTimeout(() => {
                         window.location.href = data.url || 'http://stdout.local:8112';
