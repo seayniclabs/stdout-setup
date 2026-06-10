@@ -76,12 +76,62 @@ export async function runInstaller(config, events) {
   }
 }
 
+/**
+ * Validates license key via the license API and returns GHCR token.
+ */
+async function validateLicenseWithAPI(licenseKey, email) {
+  try {
+    const response = await fetch('https://stdout-licenses.fly.dev/api/activate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: licenseKey, email }),
+      signal: AbortSignal.timeout(10000), // 10s timeout
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      return {
+        valid: false,
+        error: error.error || `License validation failed: ${response.status}`
+      };
+    }
+
+    const data = await response.json();
+    return {
+      valid: true,
+      ghcrToken: data.ghcrToken,
+      offlineLicense: data.offlineLicense,
+    };
+  } catch (err) {
+    return {
+      valid: false,
+      error: `License API unreachable: ${err.message}`
+    };
+  }
+}
+
 async function executeStep(stepId, config, workDir, events, demoMode = false, offlineMode = false) {
   // In demo mode, simulate delays instead of running real commands
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   switch (stepId) {
     case 1: // Generate Configuration
+      // Validate license key if provided (online mode only)
+      if (config.licenseKey && !demoMode && !offlineMode) {
+        events.emit('progress', { type: 'output', message: 'Validating license key...' });
+        const validation = await validateLicenseWithAPI(config.licenseKey, config.adminEmail);
+
+        if (!validation.valid) {
+          throw new Error(`License validation failed: ${validation.error}`);
+        }
+
+        events.emit('progress', { type: 'output', message: 'License validated successfully' });
+
+        // Store GHCR token and offline license for later steps
+        config._ghcrToken = validation.ghcrToken;
+        config._offlineLicense = validation.offlineLicense;
+      }
+
       await generateDockerCompose(config, workDir, events);
       if (demoMode) await delay(1500);
       break;
@@ -99,37 +149,50 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
         await delay(3000);
         events.emit('progress', { type: 'output', message: 'Image ready' });
       } else {
-        // Online mode: pull from GHCR
-        events.emit('progress', { type: 'output', message: 'Checking for stdout:latest...' });
-        // Try to pull, but if unauthorized, check if image exists locally
+        // Online mode: authenticate with GHCR using license-granted token
+        if (config._ghcrToken) {
+          events.emit('progress', { type: 'output', message: 'Authenticating with GitHub Container Registry...' });
+          try {
+            await execFile('docker', ['login', 'ghcr.io', '-u', 'stdout-license', '--password-stdin'], {
+              input: config._ghcrToken
+            });
+            events.emit('progress', { type: 'output', message: 'Authentication successful' });
+          } catch (err) {
+            events.emit('progress', { type: 'output', message: 'Warning: GHCR authentication failed, trying without auth' });
+          }
+        }
+
+        // Pull StdOut image
+        events.emit('progress', { type: 'output', message: 'Pulling stdout:latest...' });
         try {
           await execFile('docker', ['pull', 'ghcr.io/seayniclabs/stdout:latest']);
-          events.emit('progress', { type: 'output', message: 'Image pulled successfully' });
+          events.emit('progress', { type: 'output', message: 'StdOut image pulled successfully' });
         } catch (err) {
-          if (err.message.includes('unauthorized')) {
+          if (err.message.includes('unauthorized') || err.message.includes('denied')) {
             // Check if image exists locally
             const { stdout } = await execFile('docker', ['images', '-q', 'ghcr.io/seayniclabs/stdout:latest']);
             if (stdout.trim()) {
-              events.emit('progress', { type: 'output', message: 'Using local image' });
+              events.emit('progress', { type: 'output', message: 'Using local StdOut image' });
             } else {
-              throw new Error('Image not available locally and pull failed');
+              throw new Error('StdOut image not available: license validation may have failed or image is private');
             }
           } else {
             throw err;
           }
         }
 
-        events.emit('progress', { type: 'output', message: 'Checking for windlass:latest...' });
+        // Pull Windlass image
+        events.emit('progress', { type: 'output', message: 'Pulling windlass:latest...' });
         try {
           await execFile('docker', ['pull', 'ghcr.io/seayniclabs/windlass:latest']);
-          events.emit('progress', { type: 'output', message: 'Image pulled successfully' });
+          events.emit('progress', { type: 'output', message: 'Windlass image pulled successfully' });
         } catch (err) {
-          if (err.message.includes('unauthorized')) {
+          if (err.message.includes('unauthorized') || err.message.includes('denied')) {
             const { stdout } = await execFile('docker', ['images', '-q', 'ghcr.io/seayniclabs/windlass:latest']);
             if (stdout.trim()) {
-              events.emit('progress', { type: 'output', message: 'Using local image' });
+              events.emit('progress', { type: 'output', message: 'Using local Windlass image' });
             } else {
-              throw new Error('Image not available locally and pull failed');
+              throw new Error('Windlass image not available: license validation may have failed or image is private');
             }
           } else {
             throw err;
