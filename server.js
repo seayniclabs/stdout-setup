@@ -5,6 +5,10 @@ import { runInstaller } from './installer.js';
 const app = express();
 const setupEvents = new EventEmitter();
 
+// Buffer last error for late-connecting SSE clients
+let lastError = null;
+let installationComplete = false;
+
 app.use(express.json());
 app.use(express.static('public'));
 
@@ -23,9 +27,32 @@ app.get('/api/setup/stream', (req, res) => {
   // Send initial connection confirmation
   res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
 
+  // If there's a buffered error, send it immediately
+  if (lastError) {
+    console.log('[SSE] Sending buffered error:', lastError);
+    res.write(`data: ${JSON.stringify(lastError)}\n\n`);
+    res.end();
+    return;
+  }
+
+  // If installation already completed, send completion immediately
+  if (installationComplete) {
+    res.write(`data: ${JSON.stringify({ type: 'complete', url: 'http://stdout.local:8112' })}\n\n`);
+    res.end();
+    return;
+  }
+
   const onProgress = (data) => {
     console.log('[SSE] Sending:', data);
     res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+    // Buffer errors and completion for late-connecting clients
+    if (data.type === 'error') {
+      lastError = data;
+    }
+    if (data.type === 'complete') {
+      installationComplete = true;
+    }
   };
 
   setupEvents.on('progress', onProgress);

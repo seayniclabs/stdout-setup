@@ -325,3 +325,193 @@ h1 {
     font-size: 13px;
   }
 }
+
+/* Splash Screen Styles */
+#splash-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #0A0A12;
+  z-index: 1000;
+}
+
+.installer-container {
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+.core-loader {
+  width: 160px;
+  height: 160px;
+  position: relative;
+  margin: 0 auto 30px;
+}
+
+.ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 2px solid transparent;
+  border-radius: 50%;
+}
+
+.ring-outer {
+  border-top-color: #FB923C;
+  animation: spinClockwise 2s linear infinite;
+}
+
+.ring-inner {
+  width: 80%;
+  height: 80%;
+  top: 10%;
+  left: 10%;
+  border-bottom-color: #FCA574;
+  animation: spinCounterClockwise 1.5s linear infinite;
+}
+
+.logo-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  opacity: 0.9;
+}
+
+@keyframes spinClockwise {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes spinCounterClockwise {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.installer-container h1 {
+  font-size: 1.5rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #FB923C;
+  text-shadow: 0 0 4px rgba(249, 115, 22, 0.3);
+  margin-bottom: 5px;
+}
+
+.status-text {
+  font-size: 0.9rem;
+  color: #A0A0B8;
+  margin-bottom: 25px;
+  min-height: 1.2em;
+}
+
+.progress-frame {
+  width: 100%;
+  max-width: 500px;
+  height: 4px;
+  background: rgba(249, 115, 22, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 0 auto 15px;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #FB923C, #FCA574);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.5);
+}
+
+.percentage {
+  margin-top: 15px;
+  font-size: 1.2rem;
+  color: #FB923C;
+  font-weight: bold;
+}
+
+.step-indicator {
+  margin-top: 20px;
+  font-size: 0.75rem;
+  color: #A0A0B8;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Error Panel */
+.error-panel {
+  background: rgba(220, 38, 38, 0.1);
+  border: 2px solid #FB923C;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 600px;
+  margin: 2rem auto;
+  text-align: left;
+}
+
+.error-icon {
+  font-size: 3rem;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.error-content h2 {
+  color: #FB923C;
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.error-message {
+  color: #F0F0F8;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.error-actions {
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 3px solid #FB923C;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+}
+
+.error-actions h3 {
+  color: #FCA574;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.75rem;
+}
+
+.error-actions ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin: 0;
+}
+
+.error-actions li {
+  color: #F0F0F8;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  margin-bottom: 0.5rem;
+}
+
+.error-support {
+  border-top: 1px solid rgba(249, 115, 22, 0.3);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.error-support p {
+  color: #A0A0B8;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
