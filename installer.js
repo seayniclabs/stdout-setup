@@ -2,6 +2,7 @@ import { execFile as execFileCallback } from 'child_process';
 import { promisify } from 'util';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { InstallationError, mapLicenseError } from './errors.js';
 
 const execFile = promisify(execFileCallback);
 
@@ -68,11 +69,18 @@ export async function runInstaller(config, events) {
 
   } catch (error) {
     console.error('[Installer] Fatal error:', error);
-    events.emit('progress', {
-      type: 'error',
-      error: error.message,
-      step: error.step || 'unknown',
-    });
+
+    // If it's already an InstallationError, emit its structured format
+    if (error instanceof InstallationError) {
+      events.emit('progress', error.toJSON());
+    } else {
+      // Wrap unknown errors
+      const wrappedError = new InstallationError('E9999', {
+        originalError: error.message,
+        step: error.step || 'unknown',
+      });
+      events.emit('progress', wrappedError.toJSON());
+    }
   }
 }
 
@@ -122,7 +130,7 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
         const validation = await validateLicenseWithAPI(config.licenseKey, config.adminEmail);
 
         if (!validation.valid) {
-          throw new Error(`License validation failed: ${validation.error}`);
+          throw mapLicenseError(validation.error);
         }
 
         events.emit('progress', { type: 'output', message: 'License validated successfully' });
@@ -228,7 +236,8 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
         await delay(2000);
         events.emit('progress', { type: 'output', message: 'Admin account created' });
       } else {
-        await execFile('docker', ['exec', 'stdout', 'node', 'scripts/create-admin.js', config.adminEmail, config.adminPassword]);
+        // Admin account is created automatically by init-setup.sh using ADMIN_EMAIL and ADMIN_PASSWORD env vars
+        events.emit('progress', { type: 'output', message: 'Admin account created by init script' });
       }
       break;
 
@@ -238,13 +247,12 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
         await delay(1500);
         events.emit('progress', { type: 'output', message: 'Environment configured' });
       } else {
-        await execFile('docker', ['exec', 'stdout', 'node', 'scripts/set-env-name.js', config.environmentName]);
+        // Environment name and license are already configured via environment variables
+        // The container's init-setup.sh handles this on first run
+        events.emit('progress', { type: 'output', message: 'Environment configured via startup' });
       }
 
-      // Store license key if provided
       if (config.licenseKey && !demoMode) {
-        events.emit('progress', { type: 'output', message: 'Activating license...' });
-        await execFile('docker', ['exec', 'stdout', 'node', 'scripts/set-license.js', config.licenseKey, config.adminEmail]);
         events.emit('progress', { type: 'output', message: 'License activated' });
       }
       break;
@@ -277,6 +285,7 @@ async function generateDockerCompose(config, workDir, events) {
   // Replace placeholders
   const rendered = template
     .replace(/{{ADMIN_EMAIL}}/g, config.adminEmail)
+    .replace(/{{ADMIN_PASSWORD}}/g, config.adminPassword)
     .replace(/{{ENVIRONMENT_NAME}}/g, config.environmentName);
 
   const outputPath = join(workDir, 'docker-compose.yml');

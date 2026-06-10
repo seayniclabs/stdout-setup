@@ -38,22 +38,27 @@ app.get('/api/setup/stream', (req, res) => {
 
 // Start installation
 app.post('/api/setup/start', async (req, res) => {
-  const { adminEmail, adminPassword, environmentName } = req.body;
+  const { licenseKey, adminEmail, adminPassword, environmentName } = req.body;
 
   // Validate inputs
   if (!adminEmail || !adminPassword) {
     return res.status(400).json({ error: 'Admin email and password required' });
   }
 
+  if (!licenseKey) {
+    return res.status(400).json({ error: 'License key required' });
+  }
+
   res.json({ status: 'started' });
 
   // Run installer in background
   runInstaller({
+    licenseKey,
     adminEmail,
     adminPassword,
     environmentName: environmentName || 'Production',
   }, setupEvents).catch(err => {
-    setupEvents.emit('progress', { error: err.message });
+    setupEvents.emit('progress', { type: 'error', error: err.message });
   });
 });
 

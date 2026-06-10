@@ -162,6 +162,79 @@
             color: var(--text-secondary);
             font-family: 'JetBrains Mono', monospace;
         }
+
+        /* Error Panel */
+        .error-panel {
+            background: rgba(220, 38, 38, 0.1);
+            border: 2px solid var(--accent);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 600px;
+            margin: 2rem auto;
+            text-align: left;
+        }
+
+        .error-icon {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .error-content h2 {
+            color: var(--accent);
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
+        .error-message {
+            color: var(--text-primary);
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+
+        .error-actions {
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 3px solid var(--accent);
+            padding: 1rem 1.5rem;
+            margin-bottom: 1.5rem;
+            border-radius: 4px;
+        }
+
+        .error-actions h3 {
+            color: var(--accent-light);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+        }
+
+        .error-actions ol {
+            list-style: decimal;
+            padding-left: 1.5rem;
+            margin: 0;
+        }
+
+        .error-actions li {
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            line-height: 1.8;
+            margin-bottom: 0.5rem;
+        }
+
+        .error-support {
+            border-top: 1px solid rgba(249, 115, 22, 0.3);
+            padding-top: 1rem;
+            margin-top: 1rem;
+        }
+
+        .error-support p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
@@ -232,8 +305,7 @@
                     break;
 
                 case 'error':
-                    statusText.style.color = '#FF6B6B';
-                    statusText.textContent = `Error: ${data.error}`;
+                    renderError(data);
                     eventSource.close();
                     break;
 
@@ -257,6 +329,42 @@
             statusText.textContent = 'Connection lost. Please refresh the page.';
             eventSource.close();
         };
+
+        function renderError(errorData) {
+            // Hide progress UI
+            document.querySelector('.progress-frame').style.display = 'none';
+            document.querySelector('.percentage').style.display = 'none';
+            document.querySelector('.step-indicator').style.display = 'none';
+
+            // Replace status with error panel
+            const container = document.querySelector('.container');
+            const errorPanel = document.createElement('div');
+            errorPanel.className = 'error-panel';
+            errorPanel.innerHTML = `
+                <div class="error-icon">❌</div>
+                <div class="error-content">
+                    <h2>Error ${errorData.code || 'Unknown'}</h2>
+                    <p class="error-message">${errorData.error || 'An unexpected error occurred'}</p>
+                    ${errorData.actions && errorData.actions.length > 0 ? `
+                        <div class="error-actions">
+                            <h3>What to try:</h3>
+                            <ol>
+                                ${errorData.actions.map(action => `<li>${action}</li>`).join('')}
+                            </ol>
+                        </div>
+                    ` : ''}
+                    <div class="error-support">
+                        <p>If you need help, contact support@seayniclabs.com with error code ${errorData.code || 'E9999'}</p>
+                    </div>
+                </div>
+            `;
+
+            // Remove old status text
+            statusText.remove();
+
+            // Insert error panel
+            container.appendChild(errorPanel);
+        }
     </script>
 </body>
 </html>
