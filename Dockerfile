@@ -2,8 +2,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install Docker CLI (to control host Docker via socket)
-RUN apk add --no-cache docker-cli curl
+# Install Docker CLI and docker-compose (to control host Docker via socket)
+RUN apk add --no-cache docker-cli docker-compose curl
 
 # Copy package files
 COPY package*.json ./

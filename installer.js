@@ -1,6 +1,6 @@
 import { execFile as execFileCallback } from 'child_process';
 import { promisify } from 'util';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
 const execFile = promisify(execFileCallback);
@@ -17,7 +17,9 @@ const STEPS = [
 ];
 
 export async function runInstaller(config, events) {
-  const workDir = '/workspace';
+  const workDir = '/tmp/stdout-install';
+  const DEMO_MODE = process.env.DEMO_MODE === 'true';
+  const OFFLINE_MODE = process.env.OFFLINE_MODE === 'true';
   let completedWeight = 0;
   const totalWeight = STEPS.reduce((sum, s) => sum + s.weight, 0);
 
@@ -33,7 +35,7 @@ export async function runInstaller(config, events) {
       });
 
       // Execute step
-      await executeStep(step.id, config, workDir, events);
+      await executeStep(step.id, config, workDir, events, DEMO_MODE, OFFLINE_MODE);
 
       completedWeight += step.weight;
 
@@ -52,7 +54,8 @@ export async function runInstaller(config, events) {
       message: 'Installation complete! Redirecting to StdOut...',
     });
 
-    // Self-destruct after 10 seconds
+    // Self-destruct after delay (60s in demo mode, 10s in production)
+    const destructDelay = DEMO_MODE ? 60000 : 10000;
     setTimeout(async () => {
       console.log('[Installer] Self-destructing setup container...');
       try {
@@ -61,7 +64,7 @@ export async function runInstaller(config, events) {
       } catch (err) {
         console.error('[Installer] Self-destruct failed:', err.message);
       }
-    }, 10000);
+    }, destructDelay);
 
   } catch (error) {
     console.error('[Installer] Fatal error:', error);
@@ -73,50 +76,148 @@ export async function runInstaller(config, events) {
   }
 }
 
-async function executeStep(stepId, config, workDir, events) {
+async function executeStep(stepId, config, workDir, events, demoMode = false, offlineMode = false) {
+  // In demo mode, simulate delays instead of running real commands
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
   switch (stepId) {
     case 1: // Generate Configuration
       await generateDockerCompose(config, workDir, events);
+      if (demoMode) await delay(1500);
       break;
 
     case 2: // Pull Docker Images
-      events.emit('progress', { type: 'output', message: 'Pulling stdout:latest...' });
-      await execFile('docker', ['pull', 'ghcr.io/charlieseay/stdout:latest']);
-      events.emit('progress', { type: 'output', message: 'Pulling windlass:latest...' });
-      await execFile('docker', ['pull', 'ghcr.io/charlieseay/windlass:latest']);
+      if (offlineMode) {
+        // Offline mode: skip pull, images already loaded via docker load
+        events.emit('progress', { type: 'output', message: 'Offline mode: using pre-loaded images' });
+        events.emit('progress', { type: 'output', message: 'Images loaded from bundle' });
+      } else if (demoMode) {
+        events.emit('progress', { type: 'output', message: 'Checking for stdout:latest...' });
+        await delay(3000);
+        events.emit('progress', { type: 'output', message: 'Image ready' });
+        events.emit('progress', { type: 'output', message: 'Checking for windlass:latest...' });
+        await delay(3000);
+        events.emit('progress', { type: 'output', message: 'Image ready' });
+      } else {
+        // Online mode: pull from GHCR
+        events.emit('progress', { type: 'output', message: 'Checking for stdout:latest...' });
+        // Try to pull, but if unauthorized, check if image exists locally
+        try {
+          await execFile('docker', ['pull', 'ghcr.io/seayniclabs/stdout:latest']);
+          events.emit('progress', { type: 'output', message: 'Image pulled successfully' });
+        } catch (err) {
+          if (err.message.includes('unauthorized')) {
+            // Check if image exists locally
+            const { stdout } = await execFile('docker', ['images', '-q', 'ghcr.io/seayniclabs/stdout:latest']);
+            if (stdout.trim()) {
+              events.emit('progress', { type: 'output', message: 'Using local image' });
+            } else {
+              throw new Error('Image not available locally and pull failed');
+            }
+          } else {
+            throw err;
+          }
+        }
+
+        events.emit('progress', { type: 'output', message: 'Checking for windlass:latest...' });
+        try {
+          await execFile('docker', ['pull', 'ghcr.io/seayniclabs/windlass:latest']);
+          events.emit('progress', { type: 'output', message: 'Image pulled successfully' });
+        } catch (err) {
+          if (err.message.includes('unauthorized')) {
+            const { stdout } = await execFile('docker', ['images', '-q', 'ghcr.io/seayniclabs/windlass:latest']);
+            if (stdout.trim()) {
+              events.emit('progress', { type: 'output', message: 'Using local image' });
+            } else {
+              throw new Error('Image not available locally and pull failed');
+            }
+          } else {
+            throw err;
+          }
+        }
+      }
       break;
 
     case 3: // Start Containers
       events.emit('progress', { type: 'output', message: 'Starting containers...' });
-      await execFile('docker', ['compose', '-f', join(workDir, 'docker-compose.yml'), 'up', '-d']);
+      if (demoMode) {
+        await delay(2500);
+        events.emit('progress', { type: 'output', message: 'Containers started successfully' });
+      } else {
+        // Try docker compose first, fall back to docker-compose
+        try {
+          await execFile('docker', ['compose', '-f', join(workDir, 'docker-compose.yml'), 'up', '-d']);
+        } catch (err) {
+          if (err.message.includes('unknown shorthand flag')) {
+            // Use legacy docker-compose command
+            await execFile('docker-compose', ['-f', join(workDir, 'docker-compose.yml'), 'up', '-d']);
+          } else {
+            throw err;
+          }
+        }
+      }
       break;
 
     case 4: // Wait for Health Checks
       events.emit('progress', { type: 'output', message: 'Waiting for health checks...' });
-      await waitForHealthy('stdout', 60000, events);
+      if (demoMode) {
+        await delay(4000);
+        events.emit('progress', { type: 'output', message: 'stdout health: healthy' });
+        events.emit('progress', { type: 'output', message: 'windlass health: healthy' });
+      } else {
+        await waitForHealthy('stdout', 60000, events);
+      }
       break;
 
     case 5: // Initialize Database
       events.emit('progress', { type: 'output', message: 'Running database migrations...' });
-      await execFile('docker', ['exec', 'stdout', 'npm', 'run', 'db:migrate']);
+      if (demoMode) {
+        await delay(3000);
+        events.emit('progress', { type: 'output', message: 'Database initialized' });
+      } else {
+        await execFile('docker', ['exec', 'stdout', 'npm', 'run', 'db:migrate']);
+      }
       break;
 
     case 6: // Create Admin Account
       events.emit('progress', { type: 'output', message: `Creating admin user: ${config.adminEmail}` });
-      await execFile('docker', ['exec', 'stdout', 'node', 'scripts/create-admin.js', config.adminEmail, config.adminPassword]);
+      if (demoMode) {
+        await delay(2000);
+        events.emit('progress', { type: 'output', message: 'Admin account created' });
+      } else {
+        await execFile('docker', ['exec', 'stdout', 'node', 'scripts/create-admin.js', config.adminEmail, config.adminPassword]);
+      }
       break;
 
-    case 7: // Configure Environment
+    case 7: // Configure Environment & License
       events.emit('progress', { type: 'output', message: `Setting environment name: ${config.environmentName}` });
-      await execFile('docker', ['exec', 'stdout', 'node', 'scripts/set-env-name.js', config.environmentName]);
+      if (demoMode) {
+        await delay(1500);
+        events.emit('progress', { type: 'output', message: 'Environment configured' });
+      } else {
+        await execFile('docker', ['exec', 'stdout', 'node', 'scripts/set-env-name.js', config.environmentName]);
+      }
+
+      // Store license key if provided
+      if (config.licenseKey && !demoMode) {
+        events.emit('progress', { type: 'output', message: 'Activating license...' });
+        await execFile('docker', ['exec', 'stdout', 'node', 'scripts/set-license.js', config.licenseKey, config.adminEmail]);
+        events.emit('progress', { type: 'output', message: 'License activated' });
+      }
       break;
 
     case 8: // Finalize Installation
       events.emit('progress', { type: 'output', message: 'Marking installation complete...' });
-      await execFile('docker', ['exec', 'stdout', 'node', 'scripts/mark-installation-complete.js']);
-      events.emit('progress', { type: 'output', message: 'Running health check...' });
-      const { stdout } = await execFile('docker', ['exec', 'stdout', 'curl', '-f', 'http://localhost:3000/healthz']);
-      events.emit('progress', { type: 'output', message: `Health check: ${stdout}` });
+      if (demoMode) {
+        await delay(2000);
+        events.emit('progress', { type: 'output', message: 'Installation marked complete' });
+        events.emit('progress', { type: 'output', message: 'Health check: {"status":"ok","version":"1.0.0"}' });
+      } else {
+        await execFile('docker', ['exec', 'stdout', 'node', 'scripts/mark-installation-complete.js']);
+        events.emit('progress', { type: 'output', message: 'Running health check...' });
+        const { stdout } = await execFile('docker', ['exec', 'stdout', 'curl', '-f', 'http://localhost:3000/healthz']);
+        events.emit('progress', { type: 'output', message: `Health check: ${stdout}` });
+      }
       break;
 
     default:
@@ -125,6 +226,9 @@ async function executeStep(stepId, config, workDir, events) {
 }
 
 async function generateDockerCompose(config, workDir, events) {
+  // Ensure work directory exists
+  await mkdir(workDir, { recursive: true });
+
   const template = await readFile(join(import.meta.dirname, 'templates', 'docker-compose.yml.tpl'), 'utf8');
 
   // Replace placeholders

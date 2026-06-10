@@ -2,9 +2,16 @@
 document.getElementById('setup-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  const licenseKey = document.getElementById('license-key').value.trim();
   const adminEmail = document.getElementById('admin-email').value;
   const adminPassword = document.getElementById('admin-password').value;
   const environmentName = document.getElementById('environment-name').value;
+
+  // Validate license key format
+  if (!licenseKey.startsWith('SL-')) {
+    alert('Invalid license key format. License keys must start with "SL-"');
+    return;
+  }
 
   // Validate password length
   if (adminPassword.length < 8) {
@@ -17,7 +24,7 @@ document.getElementById('setup-form').addEventListener('submit', async (e) => {
     const response = await fetch('/api/setup/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminEmail, adminPassword, environmentName }),
+      body: JSON.stringify({ licenseKey, adminEmail, adminPassword, environmentName }),
     });
 
     if (!response.ok) {

@@ -5,46 +5,70 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 100%);
-  color: #e4e7eb;
+  font-family: 'JetBrains Mono', monospace;
+  background: #07070C;
+  color: #F0F0F8;
   min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 20px;
+  overflow: hidden;
+}
+
+/* Sci-Fi Grid Background */
+.grid-bg {
+  position: fixed;
+  width: 200%;
+  height: 200%;
+  background-image:
+    linear-gradient(rgba(249, 115, 22, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(249, 115, 22, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  transform: perspective(500px) rotateX(60deg);
+  animation: gridMove 20s linear infinite;
+  z-index: 1;
+  top: -50%;
+}
+
+@keyframes gridMove {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 800px; }
 }
 
 .container {
-  max-width: 700px;
-  margin: 0 auto;
-  padding: 40px;
-  background: rgba(26, 31, 46, 0.8);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 10;
+  max-width: 440px;
+  width: 100%;
+  padding: 36px;
+  background: #0E0E18;
+  border: 1px solid #1F1F35;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
-.logo {
-  font-size: 48px;
-  font-weight: 700;
-  margin-bottom: 20px;
-  background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.logo-svg {
+  margin: 0 auto 16px;
+  display: block;
 }
 
 h1 {
-  font-size: 32px;
-  font-weight: 700;
-  margin-bottom: 10px;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #F0F0F8;
 }
 
 .subtitle {
-  font-size: 16px;
-  color: #a8abb3;
+  font-size: 13px;
+  color: #A0A0B8;
+  line-height: 1.4;
 }
 
 /* Form Styling */
@@ -57,92 +81,84 @@ h1 {
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .form-group label {
   font-weight: 500;
-  font-size: 14px;
-  color: #d1d5db;
+  font-size: 12px;
+  color: #F0F0F8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .form-group input {
-  padding: 12px;
-  background: #2e3440;
-  border: 1px solid #3b4252;
-  border-radius: 8px;
-  color: #e4e7eb;
-  font-size: 16px;
-  transition: border-color 0.2s;
+  padding: 12px 14px;
+  background: #151522;
+  border: 1px solid #1F1F35;
+  border-radius: 6px;
+  color: #F0F0F8;
+  font-size: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  transition: all 0.2s;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #6c5ce7;
+  border-color: #F97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+}
+
+.form-group input::placeholder {
+  color: #5A5A78;
 }
 
 .form-group small {
   font-size: 12px;
-  color: #a8abb3;
+  color: #A0A0B8;
 }
 
 .btn-primary {
-  padding: 14px 24px;
-  background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #C2410C 0%, #F97316 100%);
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 16px;
+  border-radius: 6px;
+  font-size: 14px;
   font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.2s;
+  margin-top: 4px;
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(108, 92, 231, 0.4);
+  box-shadow: 0 8px 24px rgba(249, 115, 22, 0.4);
 }
 
-.btn-secondary {
-  padding: 12px 24px;
-  background: #2e3440;
-  color: #e4e7eb;
-  border: 1px solid #3b4252;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-secondary:hover {
-  background: #353b4d;
+.btn-primary:active {
+  transform: translateY(0);
 }
 
 /* Progress Bar */
 .progress-bar {
   position: relative;
   height: 12px;
-  background: #2e3440;
+  background: #151522;
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 30px;
+  border: 1px solid #1F1F35;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+  background: linear-gradient(90deg, #C2410C, #F97316);
   transition: width 0.3s ease;
-}
-
-.progress-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 10px;
-  font-weight: 600;
-  color: white;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.5);
 }
 
 /* Steps */
@@ -158,20 +174,20 @@ h1 {
   align-items: center;
   gap: 12px;
   padding: 14px;
-  background: #2e3440;
+  background: #151522;
   border-radius: 8px;
   border-left: 4px solid transparent;
   transition: all 0.2s;
 }
 
 .step.active {
-  border-left-color: #6c5ce7;
-  background: #353b4d;
+  border-left-color: #F97316;
+  background: #1F1F35;
 }
 
 .step.complete {
   opacity: 0.6;
-  border-left-color: #48bb78;
+  border-left-color: #00D4AA;
 }
 
 .step-icon {
@@ -185,28 +201,30 @@ h1 {
 
 /* Console */
 .console {
-  background: #1a1f2e;
+  background: #0E0E18;
   border-radius: 8px;
   overflow: hidden;
+  border: 1px solid #1F1F35;
 }
 
 .console-header {
   padding: 12px 16px;
-  background: #2e3440;
-  font-size: 12px;
+  background: #151522;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  color: #a8abb3;
+  color: #A0A0B8;
+  letter-spacing: 0.5px;
 }
 
 .console-output {
   padding: 16px;
   max-height: 300px;
   overflow-y: auto;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  font-family: 'JetBrains Mono', Monaco, monospace;
   font-size: 12px;
   line-height: 1.6;
-  color: #d1d5db;
+  color: #F0F0F8;
 }
 
 .console-output div {
@@ -220,7 +238,7 @@ h1 {
 
 .success-icon {
   font-size: 64px;
-  color: #48bb78;
+  color: #00D4AA;
   margin-bottom: 20px;
 }
 
@@ -228,22 +246,23 @@ h1 {
   display: inline-block;
   padding: 12px 24px;
   margin: 20px 0;
-  background: #2e3440;
+  background: #151522;
   border-radius: 8px;
-  color: #6c5ce7;
+  color: #F97316;
   text-decoration: none;
   font-size: 18px;
   font-weight: 600;
   transition: background 0.2s;
+  border: 1px solid #1F1F35;
 }
 
 .completion-url:hover {
-  background: #353b4d;
+  background: #1F1F35;
 }
 
 .redirect-notice {
   font-size: 14px;
-  color: #a8abb3;
+  color: #A0A0B8;
   margin-top: 20px;
 }
 
@@ -254,17 +273,55 @@ h1 {
 
 .error-icon {
   font-size: 64px;
-  color: #f56565;
+  color: #FF6B6B;
   margin-bottom: 20px;
 }
 
 #error-message {
   padding: 16px;
-  background: rgba(245, 101, 101, 0.1);
-  border: 1px solid rgba(245, 101, 101, 0.3);
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
   border-radius: 8px;
   margin: 20px 0;
-  font-family: monospace;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 14px;
-  color: #fc8181;
+  color: #FF6B6B;
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+  body {
+    padding: 12px;
+  }
+
+  .container {
+    padding: 28px 20px;
+  }
+
+  .logo-svg {
+    width: 64px;
+    height: 64px;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+  }
+
+  .form-group label {
+    font-size: 11px;
+  }
+
+  .form-group input {
+    padding: 11px 12px;
+    font-size: 13px;
+  }
+
+  .btn-primary {
+    padding: 13px 18px;
+    font-size: 13px;
+  }
 }
