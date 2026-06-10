@@ -34,38 +34,6 @@
 
       <button type="submit" class="btn-primary">Start Installation</button>
     </form>
-
-    <!-- Progress View (shown during installation) -->
-    <div id="progress-view" style="display: none;">
-      <div class="progress-bar">
-        <div class="progress-fill" id="progress" style="width: 0%"></div>
-        <span class="progress-text" id="progress-text">0%</span>
-      </div>
-
-      <div id="steps" class="steps"></div>
-
-      <div class="console">
-        <div class="console-header">Installation Log</div>
-        <div class="console-output" id="console"></div>
-      </div>
-    </div>
-
-    <!-- Completion View (shown after success) -->
-    <div id="complete-view" style="display: none;">
-      <div class="success-icon">✓</div>
-      <h2>Installation Complete!</h2>
-      <p>StdOut is now running at:</p>
-      <a href="http://stdout.local:8112" class="completion-url" id="completion-url">http://stdout.local:8112</a>
-      <p class="redirect-notice">Redirecting in <span id="countdown">5</span> seconds...</p>
-    </div>
-
-    <!-- Error View -->
-    <div id="error-view" style="display: none;">
-      <div class="error-icon">✗</div>
-      <h2>Installation Failed</h2>
-      <p id="error-message"></p>
-      <button onclick="location.reload()" class="btn-secondary">Retry Installation</button>
-    </div>
   </div>
 
   <script src="/setup.js"></script>
