@@ -153,11 +153,11 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
         // Pull StdOut image
         events.emit('progress', { type: 'output', message: 'Pulling stdout:latest...' });
         try {
-          await execFile('docker', ['pull', 'seayniclabs/stdout:latest']);
+          await execFile('docker', ['pull', 'charlieseay/stdout:latest']);
           events.emit('progress', { type: 'output', message: 'StdOut image pulled successfully' });
         } catch (err) {
           // Check if image exists locally
-          const { stdout } = await execFile('docker', ['images', '-q', 'seayniclabs/stdout:latest']);
+          const { stdout } = await execFile('docker', ['images', '-q', 'charlieseay/stdout:latest']);
           if (stdout.trim()) {
             events.emit('progress', { type: 'output', message: 'Using local StdOut image' });
           } else {
@@ -168,10 +168,10 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
         // Pull Windlass image
         events.emit('progress', { type: 'output', message: 'Pulling windlass:latest...' });
         try {
-          await execFile('docker', ['pull', 'seayniclabs/windlass:latest']);
+          await execFile('docker', ['pull', 'charlieseay/windlass:latest']);
           events.emit('progress', { type: 'output', message: 'Windlass image pulled successfully' });
         } catch (err) {
-          const { stdout } = await execFile('docker', ['images', '-q', 'seayniclabs/windlass:latest']);
+          const { stdout } = await execFile('docker', ['images', '-q', 'charlieseay/windlass:latest']);
           if (stdout.trim()) {
             events.emit('progress', { type: 'output', message: 'Using local Windlass image' });
           } else {

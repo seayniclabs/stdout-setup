@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   stdout:
-    image: seayniclabs/stdout:latest
+    image: charlieseay/stdout:latest
     container_name: stdout
     hostname: stdout
     ports:
@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
 
   windlass:
-    image: seayniclabs/windlass:latest
+    image: charlieseay/windlass:latest
     container_name: windlass
     ports:
       - "8116:8116"
