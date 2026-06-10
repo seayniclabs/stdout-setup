@@ -81,9 +81,9 @@ async function executeStep(stepId, config, workDir, events) {
 
     case 2: // Pull Docker Images
       events.emit('progress', { type: 'output', message: 'Pulling stdout:latest...' });
-      await execFile('docker', ['pull', 'ghcr.io/seayniclabs/stdout:latest']);
+      await execFile('docker', ['pull', 'ghcr.io/charlieseay/stdout:latest']);
       events.emit('progress', { type: 'output', message: 'Pulling windlass:latest...' });
-      await execFile('docker', ['pull', 'ghcr.io/seayniclabs/windlass:latest']);
+      await execFile('docker', ['pull', 'ghcr.io/charlieseay/windlass:latest']);
       break;
 
     case 3: // Start Containers
