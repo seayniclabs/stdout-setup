@@ -149,53 +149,33 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
         await delay(3000);
         events.emit('progress', { type: 'output', message: 'Image ready' });
       } else {
-        // Online mode: authenticate with GHCR using license-granted token
-        if (config._ghcrToken) {
-          events.emit('progress', { type: 'output', message: 'Authenticating with GitHub Container Registry...' });
-          try {
-            await execFile('docker', ['login', 'ghcr.io', '-u', 'stdout-license', '--password-stdin'], {
-              input: config._ghcrToken
-            });
-            events.emit('progress', { type: 'output', message: 'Authentication successful' });
-          } catch (err) {
-            events.emit('progress', { type: 'output', message: 'Warning: GHCR authentication failed, trying without auth' });
-          }
-        }
-
+        // Online mode: pull from Docker Hub (public images, license-gated at runtime)
         // Pull StdOut image
         events.emit('progress', { type: 'output', message: 'Pulling stdout:latest...' });
         try {
-          await execFile('docker', ['pull', 'ghcr.io/seayniclabs/stdout:latest']);
+          await execFile('docker', ['pull', 'seayniclabs/stdout:latest']);
           events.emit('progress', { type: 'output', message: 'StdOut image pulled successfully' });
         } catch (err) {
-          if (err.message.includes('unauthorized') || err.message.includes('denied')) {
-            // Check if image exists locally
-            const { stdout } = await execFile('docker', ['images', '-q', 'ghcr.io/seayniclabs/stdout:latest']);
-            if (stdout.trim()) {
-              events.emit('progress', { type: 'output', message: 'Using local StdOut image' });
-            } else {
-              throw new Error('StdOut image not available: license validation may have failed or image is private');
-            }
+          // Check if image exists locally
+          const { stdout } = await execFile('docker', ['images', '-q', 'seayniclabs/stdout:latest']);
+          if (stdout.trim()) {
+            events.emit('progress', { type: 'output', message: 'Using local StdOut image' });
           } else {
-            throw err;
+            throw new Error(`Failed to pull StdOut image: ${err.message}`);
           }
         }
 
         // Pull Windlass image
         events.emit('progress', { type: 'output', message: 'Pulling windlass:latest...' });
         try {
-          await execFile('docker', ['pull', 'ghcr.io/seayniclabs/windlass:latest']);
+          await execFile('docker', ['pull', 'seayniclabs/windlass:latest']);
           events.emit('progress', { type: 'output', message: 'Windlass image pulled successfully' });
         } catch (err) {
-          if (err.message.includes('unauthorized') || err.message.includes('denied')) {
-            const { stdout } = await execFile('docker', ['images', '-q', 'ghcr.io/seayniclabs/windlass:latest']);
-            if (stdout.trim()) {
-              events.emit('progress', { type: 'output', message: 'Using local Windlass image' });
-            } else {
-              throw new Error('Windlass image not available: license validation may have failed or image is private');
-            }
+          const { stdout } = await execFile('docker', ['images', '-q', 'seayniclabs/windlass:latest']);
+          if (stdout.trim()) {
+            events.emit('progress', { type: 'output', message: 'Using local Windlass image' });
           } else {
-            throw err;
+            throw new Error(`Failed to pull Windlass image: ${err.message}`);
           }
         }
       }
