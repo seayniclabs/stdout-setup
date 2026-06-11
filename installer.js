@@ -255,6 +255,7 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
       }
 
       if (config.licenseKey && !demoMode) {
+        await execFile('docker', ['exec', 'stdout', 'node', 'scripts/set-license.js', config.licenseKey, config.adminEmail]);
         events.emit('progress', { type: 'output', message: 'License activated' });
       }
       break;
