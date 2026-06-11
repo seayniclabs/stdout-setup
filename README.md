@@ -55,8 +55,8 @@ Server runs on http://localhost:8888
 ## Building Docker Image
 
 ```bash
-docker build -t ghcr.io/seayniclabs/stdout-setup:latest .
-docker push ghcr.io/seayniclabs/stdout-setup:latest
+docker build -t charlieseay/stdout-setup:latest .
+docker push charlieseay/stdout-setup:latest
 ```
 
 ## Usage
@@ -71,7 +71,7 @@ docker run -d \
   -p 8888:8888 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v $(pwd)/stdout-data:/workspace \
-  ghcr.io/seayniclabs/stdout-setup:latest
+  charlieseay/stdout-setup:latest
 ```
 
 ## Files
