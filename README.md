@@ -67,6 +67,7 @@ This container is typically started by the `install.sh` script:
 docker run -d \
   --name stdout-setup \
   --hostname stdout \
+  --restart unless-stopped \
   -p 8888:8888 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v $(pwd)/stdout-data:/workspace \

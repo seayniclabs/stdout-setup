@@ -105,9 +105,11 @@ async function validateLicenseWithAPI(licenseKey, email) {
     }
 
     const data = await response.json();
+    // Images are pulled from Docker Hub (public, license-gated at runtime) — the
+    // registry of record. The license API still returns a ghcrToken for legacy
+    // reasons but the install flow does NOT use it; do not depend on it here.
     return {
       valid: true,
-      ghcrToken: data.ghcrToken,
       offlineLicense: data.offlineLicense,
     };
   } catch (err) {
@@ -135,8 +137,8 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
 
         events.emit('progress', { type: 'output', message: 'License validated successfully' });
 
-        // Store GHCR token and offline license for later steps
-        config._ghcrToken = validation.ghcrToken;
+        // Store offline license for later steps. Images come from Docker Hub
+        // (public) — no registry token is needed for the pull.
         config._offlineLicense = validation.offlineLicense;
       }
 

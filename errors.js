@@ -54,7 +54,7 @@ export const ERROR_CODES = {
     userMessage: 'Failed to download container images. Check your internet connection.',
     actions: [
       'Verify your internet connection is working',
-      'Check if ghcr.io is accessible',
+      'Check if hub.docker.com (Docker Hub) is accessible',
       'Retry the installation',
     ],
   },
