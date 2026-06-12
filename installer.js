@@ -3,8 +3,94 @@ import { promisify } from 'util';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { InstallationError, mapLicenseError } from './errors.js';
+import crypto from 'crypto';
 
 const execFile = promisify(execFileCallback);
+
+// Ed25519 public key — verifies all SL- keys issued from 2026-06-11 onward
+const ED25519_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEActdpqlMQUnc3ObmJXZTVhrJdIXwjsZVzjLl33HxMOwY=
+-----END PUBLIC KEY-----`;
+
+// RSA-4096 public key — kept for backward compat with any pre-Ed25519 keys
+const RSA_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAqml6Jvswz/YQOxsw+ipo
+YP60nMaqAMJZJbbbjmq7qKZPkkWOuC1NIfTx5y9MM9ULjeVXGmcL19d/AZ0T2mvC
++977g1KBP6cf4cj+xSmSGvpELAO+wpFZOmnnYEsIrNE8xMnk9SftMtYkbuFgFUJh
+0Ze8StslLstlbJZUCAOrTOcwGn3DPZDHRZSDFQ+PlSgFOoCxau2LotWMxTpyIcWm
+CtV/HTjkIcftunSF9o3scqEilwD9Z/yxuDVUXtfTsHHyj5JysdbR68KpDQQ7ETsl
+PjnDE6dSUcJpSxyJo7WlgBeQlXQE5E8hMTN5rJ2d2hbb+Znn+tA0KQKT27tGwrQm
+OMGrZiPvthrgpfpQy+Gzj8Zl8GxNxZBZqmwYvtAYY6+mwH32DEutA8+ffQLT5lrq
+TR32lMbjyr7xpLmwkut2JX4r38FLD0aav9t3vvHGZNQp/4PFowsO8GSRpyu2WHjC
+nZu3hGhf3MUH3V5B3GMH/P18PdVzfuzxry++M+OUFwpB8AFFZCHH1IeGl3k3pBls
+EYtOdTfUKXgO1mzUn/xzXLkgVRwTcD8177qc+TjgiuH4vjZ7Mznd6AYxLnZsU/1t
+mUsSL37+laA0Ats3L/B3GepcraOuXluV/0YbkAEIFzNkuA64apLeDoH4FmKvfisD
+v0orsvF3/0gETuC17zRFFB0CAwEAAQ==
+-----END PUBLIC KEY-----`;
+
+/**
+ * Verify a signed license offline — no network call needed.
+ * Tries Ed25519 first (short keys), falls back to RSA for legacy keys.
+ */
+function verifyLicenseSignature(signedKey) {
+  if (!signedKey.startsWith('SL-')) {
+    return { valid: false, reason: 'Invalid license format' };
+  }
+
+  const parts = signedKey.slice(3).split('.');
+  if (parts.length !== 2) {
+    const dashCount = (signedKey.match(/-/g) || []).length;
+    if (dashCount === 2) {
+      return { valid: false, reason: 'Legacy license format - requires online validation' };
+    }
+    return { valid: false, reason: 'Invalid license format' };
+  }
+
+  const [payloadB64, signatureB64] = parts;
+  const sigBytes = Buffer.from(signatureB64, 'base64url');
+
+  try {
+    // Ed25519 signatures are exactly 64 bytes — try that first
+    let isValid = false;
+    if (sigBytes.length === 64) {
+      isValid = crypto.verify(null, Buffer.from(payloadB64), ED25519_PUBLIC_KEY_PEM, sigBytes);
+    }
+
+    // Fall back to RSA-SHA256 for longer signatures (legacy keys)
+    if (!isValid && sigBytes.length > 64) {
+      const verify = crypto.createVerify('RSA-SHA256');
+      verify.update(payloadB64);
+      verify.end();
+      isValid = verify.verify(RSA_PUBLIC_KEY_PEM, signatureB64, 'base64url');
+    }
+
+    if (!isValid) {
+      return { valid: false, reason: 'Invalid signature - license may be tampered or fake' };
+    }
+
+    const raw = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+    const payload = {
+      product: raw.product ?? 'stdout-self-host',
+      email: raw.e ?? raw.email ?? '',
+      issued: raw.i ?? raw.issued ?? 0,
+      expires: raw.x ?? raw.expires ?? null,
+      maxActivations: raw.m ?? raw.maxActivations ?? 1,
+    };
+
+    if (!payload.email || !payload.issued) {
+      return { valid: false, reason: 'Invalid license payload' };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.expires && now > payload.expires) {
+      return { valid: false, reason: `License expired on ${new Date(payload.expires * 1000).toLocaleDateString()}` };
+    }
+
+    return { valid: true, payload };
+  } catch (err) {
+    return { valid: false, reason: 'License verification failed: ' + err.message };
+  }
+}
 
 const STEPS = [
   { id: 1, name: 'Generate Configuration', weight: 5 },
@@ -55,17 +141,29 @@ export async function runInstaller(config, events) {
       message: 'Installation complete! Redirecting to StdOut...',
     });
 
-    // Self-destruct after delay (60s in demo mode, 10s in production)
-    const destructDelay = DEMO_MODE ? 60000 : 10000;
-    setTimeout(async () => {
-      console.log('[Installer] Self-destructing setup container...');
-      try {
-        await execFile('docker', ['stop', 'stdout-setup']);
-        await execFile('docker', ['rm', 'stdout-setup']);
-      } catch (err) {
-        console.error('[Installer] Self-destruct failed:', err.message);
-      }
-    }, destructDelay);
+    // Self-destruct + clean eject after a delay (give the browser time to receive
+    // 'complete' and redirect to stdout.local:8112).
+    //
+    // A container cannot reliably `stop` then `rm` itself: `docker stop` kills this very
+    // process, so the following `rm` never runs and a stopped husk is left behind. Instead we
+    // spawn a DETACHED helper container that waits, then removes us from the outside. install.sh
+    // also performs a belt-and-suspenders cleanup when it sees the 'complete' marker.
+    const destructDelay = DEMO_MODE ? 60 : 10; // seconds
+    console.log(`[Installer] Scheduling clean eject in ${destructDelay}s...`);
+    try {
+      // Detached docker:cli sidecar (shares the host socket) removes the setup container after
+      // the delay. --rm so the sidecar cleans itself up too. No leftover artifacts.
+      await execFile('docker', [
+        'run', '-d', '--rm',
+        '-v', '/var/run/docker.sock:/var/run/docker.sock',
+        'docker:cli',
+        'sh', '-c',
+        `sleep ${destructDelay}; docker rm -f stdout-setup >/dev/null 2>&1 || true`,
+      ]);
+      console.log('[Installer] Clean-eject sidecar scheduled.');
+    } catch (err) {
+      console.error('[Installer] Could not schedule clean-eject sidecar:', err.message);
+    }
 
   } catch (error) {
     console.error('[Installer] Fatal error:', error);
@@ -126,20 +224,32 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
 
   switch (stepId) {
     case 1: // Generate Configuration
-      // Validate license key if provided (online mode only)
-      if (config.licenseKey && !demoMode && !offlineMode) {
+      // Validate license key if provided
+      if (config.licenseKey && !demoMode) {
         events.emit('progress', { type: 'output', message: 'Validating license key...' });
-        const validation = await validateLicenseWithAPI(config.licenseKey, config.adminEmail);
 
-        if (!validation.valid) {
-          throw mapLicenseError(validation.error);
+        // Try offline validation first (signed licenses)
+        const offlineValidation = verifyLicenseSignature(config.licenseKey);
+
+        if (offlineValidation.valid) {
+          events.emit('progress', { type: 'output', message: 'License validated (offline)' });
+          // Store license for installation
+          config._offlineLicense = config.licenseKey;
+        } else if (!offlineMode) {
+          // Fall back to online validation for legacy keys
+          events.emit('progress', { type: 'output', message: 'Trying online validation...' });
+          const validation = await validateLicenseWithAPI(config.licenseKey, config.adminEmail);
+
+          if (!validation.valid) {
+            throw mapLicenseError(validation.error);
+          }
+
+          events.emit('progress', { type: 'output', message: 'License validated (online)' });
+          config._offlineLicense = validation.offlineLicense;
+        } else {
+          // Offline mode but offline validation failed
+          throw mapLicenseError(offlineValidation.reason || 'Invalid license');
         }
-
-        events.emit('progress', { type: 'output', message: 'License validated successfully' });
-
-        // Store offline license for later steps. Images come from Docker Hub
-        // (public) — no registry token is needed for the pull.
-        config._offlineLicense = validation.offlineLicense;
       }
 
       await generateDockerCompose(config, workDir, events);
