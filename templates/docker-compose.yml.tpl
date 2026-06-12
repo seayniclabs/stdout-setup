@@ -10,7 +10,7 @@ services:
     environment:
       - TZ=America/Chicago
       - NODE_ENV=production
-      - DB_PATH=/data/central.db
+      - DB_PATH=/data/stdout.db
       - ADMIN_EMAIL={{ADMIN_EMAIL}}
       - ADMIN_PASSWORD={{ADMIN_PASSWORD}}
     volumes:
