@@ -37,7 +37,8 @@ app.get('/api/setup/stream', (req, res) => {
 
   // If installation already completed, send completion immediately
   if (installationComplete) {
-    res.write(`data: ${JSON.stringify({ type: 'complete', url: 'http://stdout.local:8112' })}\n\n`);
+    const hostIP = req.hostname || req.headers.host?.split(':')[0] || 'localhost';
+    res.write(`data: ${JSON.stringify({ type: 'complete', url: `http://${hostIP}:8112` })}\n\n`);
     res.end();
     return;
   }
@@ -76,6 +77,9 @@ app.post('/api/setup/start', async (req, res) => {
     return res.status(400).json({ error: 'License key required' });
   }
 
+  // Get host IP from the request (the IP the browser connected to)
+  const hostIP = req.hostname || req.headers.host?.split(':')[0] || 'localhost';
+
   res.json({ status: 'started' });
 
   // Run installer in background
@@ -84,6 +88,7 @@ app.post('/api/setup/start', async (req, res) => {
     adminEmail,
     adminPassword,
     environmentName: environmentName || 'Production',
+    hostIP,
   }, setupEvents).catch(err => {
     setupEvents.emit('progress', { type: 'error', error: err.message });
   });

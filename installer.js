@@ -134,8 +134,8 @@ export async function runInstaller(config, events) {
       });
     }
 
-    // Installation complete - detect host IP for redirect
-    const hostIP = await getHostIP();
+    // Installation complete - use host IP from config (detected from browser request)
+    const hostIP = config.hostIP || 'localhost';
     events.emit('progress', {
       type: 'complete',
       url: `http://${hostIP}:8112`,
@@ -430,24 +430,4 @@ async function waitForHealthy(containerName, timeout, events) {
   }
 
   throw new Error(`${containerName} failed to become healthy within ${timeout}ms`);
-}
-
-async function getHostIP() {
-  try {
-    // Get the gateway IP of the stdout container's network
-    const { stdout } = await execFile('docker', [
-      'inspect',
-      '--format={{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}',
-      'stdout'
-    ]);
-    const gatewayIP = stdout.trim();
-    if (gatewayIP && gatewayIP !== '') {
-      return gatewayIP;
-    }
-  } catch (err) {
-    // Fallback: try to get host.docker.internal IP
-  }
-
-  // Default fallback
-  return 'localhost';
 }
