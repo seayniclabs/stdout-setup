@@ -134,10 +134,11 @@ export async function runInstaller(config, events) {
       });
     }
 
-    // Installation complete
+    // Installation complete - detect host IP for redirect
+    const hostIP = await getHostIP();
     events.emit('progress', {
       type: 'complete',
-      url: 'http://stdout.local:8112',
+      url: `http://${hostIP}:8112`,
       message: 'Installation complete! Redirecting to StdOut...',
     });
 
@@ -328,7 +329,7 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
         events.emit('progress', { type: 'output', message: 'stdout health: healthy' });
         events.emit('progress', { type: 'output', message: 'windlass health: healthy' });
       } else {
-        await waitForHealthy('stdout', 60000, events);
+        await waitForHealthy('stdout', 120000, events);
       }
       break;
 
@@ -429,4 +430,24 @@ async function waitForHealthy(containerName, timeout, events) {
   }
 
   throw new Error(`${containerName} failed to become healthy within ${timeout}ms`);
+}
+
+async function getHostIP() {
+  try {
+    // Get the gateway IP of the stdout container's network
+    const { stdout } = await execFile('docker', [
+      'inspect',
+      '--format={{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}',
+      'stdout'
+    ]);
+    const gatewayIP = stdout.trim();
+    if (gatewayIP && gatewayIP !== '') {
+      return gatewayIP;
+    }
+  } catch (err) {
+    // Fallback: try to get host.docker.internal IP
+  }
+
+  // Default fallback
+  return 'localhost';
 }
