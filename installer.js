@@ -103,6 +103,26 @@ const STEPS = [
   { id: 8, name: 'Finalize Installation', weight: 10 },
 ];
 
+/**
+ * Retry helper with exponential backoff for network operations
+ */
+async function retryWithBackoff(fn, options = {}) {
+  const { maxRetries = 3, initialDelay = 2000, maxDelay = 10000, backoffMultiplier = 2 } = options;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === maxRetries) {
+        throw err; // Final attempt failed
+      }
+
+      const delay = Math.min(initialDelay * Math.pow(backoffMultiplier, attempt - 1), maxDelay);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 export async function runInstaller(config, events) {
   const workDir = '/tmp/stdout-install';
   const DEMO_MODE = process.env.DEMO_MODE === 'true';
@@ -299,6 +319,43 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
             throw new Error(`Failed to pull Windlass image: ${err.message}`);
           }
         }
+
+        // Pull Observatory images with retry logic
+        events.emit('progress', { type: 'output', message: 'Pulling ollama:latest (large image, may take a few minutes)...' });
+        try {
+          await retryWithBackoff(
+            () => execFile('docker', ['pull', 'ollama/ollama:latest']),
+            { maxRetries: 3, initialDelay: 3000 }
+          );
+          events.emit('progress', { type: 'output', message: 'Ollama image pulled successfully' });
+        } catch (err) {
+          // Check if image exists locally as fallback
+          events.emit('progress', { type: 'output', message: 'Pull failed, checking for cached image...' });
+          const { stdout } = await execFile('docker', ['images', '-q', 'ollama/ollama:latest']);
+          if (stdout.trim()) {
+            events.emit('progress', { type: 'output', message: 'Using cached Ollama image' });
+          } else {
+            throw new Error(`Failed to pull Ollama image after 3 retries: ${err.message}`);
+          }
+        }
+
+        // Pull Observatory Sentinel
+        events.emit('progress', { type: 'output', message: 'Pulling observatory-sentinel:latest...' });
+        try {
+          await retryWithBackoff(
+            () => execFile('docker', ['pull', 'charlieseay/observatory-sentinel:latest']),
+            { maxRetries: 3, initialDelay: 2000 }
+          );
+          events.emit('progress', { type: 'output', message: 'Observatory Sentinel image pulled successfully' });
+        } catch (err) {
+          events.emit('progress', { type: 'output', message: 'Pull failed, checking for cached image...' });
+          const { stdout } = await execFile('docker', ['images', '-q', 'charlieseay/observatory-sentinel:latest']);
+          if (stdout.trim()) {
+            events.emit('progress', { type: 'output', message: 'Using cached Observatory Sentinel image' });
+          } else {
+            throw new Error(`Failed to pull Observatory Sentinel image after 3 retries: ${err.message}`);
+          }
+        }
       }
       break;
 
@@ -378,6 +435,11 @@ async function executeStep(stepId, config, workDir, events, demoMode = false, of
         events.emit('progress', { type: 'output', message: 'Installation marked complete' });
         events.emit('progress', { type: 'output', message: 'Health check: {"status":"ok","version":"1.0.0"}' });
       } else {
+        // Pull Ollama model for Observatory (background - don't block installation)
+        events.emit('progress', { type: 'output', message: 'Setting up Observatory AI model (background)...' });
+        execFile('docker', ['exec', 'stdout-ollama', 'ollama', 'pull', 'llama3.2'])
+          .catch(() => {}); // Silent failure - model pull can happen in background
+
         await execFile('docker', ['exec', 'stdout', 'node', 'scripts/mark-installation-complete.js']);
         events.emit('progress', { type: 'output', message: 'Running health check...' });
         const { stdout } = await execFile('docker', ['exec', 'stdout', 'curl', '-f', 'http://localhost:3000/healthz']);
